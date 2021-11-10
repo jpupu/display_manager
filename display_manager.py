@@ -325,6 +325,7 @@ class Command(object):
                 "SCOPE (optional)",
                 "    main            Perform this command on the main display",
                 "    ext<N>          Perform this command on external display number <N>",
+                "    <HEX>           Perform this command on display with id",
                 "    all (default)   Perform this command on all connected displays",
             ]), "res": "\n".join([
                 "usage:  display_manager.py res <resolution> [refresh] [options] [scope...]",
@@ -349,6 +350,7 @@ class Command(object):
                 "SCOPE (optional)",
                 "    main (default)  Perform this command on the main display",
                 "    ext<N>          Perform this command on external display number <N>",
+                "    <HEX>           Perform this command on display with id",
                 "    all             Perform this command on all connected displays",
             ]), "rotate": "\n".join([
                 "usage:  display_manager.py rotate <angle> [scope...]",
@@ -359,6 +361,7 @@ class Command(object):
                 "SCOPE (optional)",
                 "    main (default)  Perform this command on the main display",
                 "    ext<N>          Perform this command on external display number <N>",
+                "    <HEX>           Perform this command on display with id",
                 "    all             Perform this command on all connected displays",
             ]), "brightness": "\n".join([
                 "usage:  display_manager.py brightness <brightness> [scope...]",
@@ -370,6 +373,7 @@ class Command(object):
                 "SCOPE (optional)",
                 "    main (default)  Perform this command on the main display",
                 "    ext<N>          Perform this command on external display number <N>",
+                "    <HEX>           Perform this command on display with id",
                 "    all             Perform this command on all connected displays",
             ]), "underscan": "\n".join([
                 "usage:  display_manager.py underscan <underscan> [scope...]",
@@ -381,6 +385,7 @@ class Command(object):
                 "SCOPE (optional)",
                 "    main (default)  Perform this command on the main display",
                 "    ext<N>          Perform this command on external display number <N>",
+                "    <HEX>           Perform this command on display with id",
                 "    all             Perform this command on all connected displays",
             ]), "mirror": "\n".join([
                 "usage:  display_manager.py mirror enable <source> <target...>",
@@ -399,6 +404,7 @@ class Command(object):
                 "SCOPE",
                 "    main    The main display",
                 "    ext<N>  External display number <N>",
+                "    <HEX>           Perform this command on display with id",
                 "    all (default scope for \"disable\")",
                 "        For <enable>: all connected displays besides <source>; only available to <target>",
                 "        For <disable>: all connected displays",
@@ -415,7 +421,7 @@ class Command(object):
         """
         for i, display in enumerate(self.scope):
             # Always print display identifier
-            print("display \"{0}\":".format(display.tag))
+            print("display \"{0}\" ({1:x}):".format(display.tag, display.displayID))
 
             if self.subcommand == "current":
                 current = display.currentMode
@@ -740,9 +746,15 @@ def getDisplayFromTag(displayTag):
             # 0 < externalNum < len(externals) - 1 means valid tag
             # ("0 < externalNum" known from re.match(r"^ext[0-9]+$") above)
             return externals[externalNum]
+    else:
+        displayID = int(displayTag, 16)
+        for display in getAllDisplays():
+            if displayID == display.displayID:
+                return display
+        raise CommandValueError("There is no display \"{}\"".format(displayTag))
 
     # Note: no need for final "else" here, because getDisplayFromTag will only
-    # be passed regex matches for "main|all|ext[0-9]+", because these are the only
+    # be passed regex matches for "main|all|ext[0-9]+|[0-9a-f]+", because these are the only
     # arguments added to "scopeTags"
 
 
@@ -762,7 +774,7 @@ def getCommand(commandString):
     verb = words.pop(0)
 
     # Determine scope, and remove it from words
-    scopePattern = r"^(main|ext[0-9]+|all)$"
+    scopePattern = r"^(main|ext[0-9]+|[0-9a-f]+|all)$"
     scopeTags = []
     # Iterate backwards through the indices of "words"
     for i in range(len(words) - 1, -1, -1):
